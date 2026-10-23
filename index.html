@@ -3,48 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Matrix — Thu Hằng × Tuấn Anh · 01.11</title>
-<link rel="stylesheet" href="style.css?v=10">
+<title>Galaxy — Thu Hằng × Tuấn Anh · 01.11</title>
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <div id="stage">
-  <canvas id="rain"></canvas>
-  <canvas id="gl" class="hidden-gl"></canvas>
-  <div id="vignette"></div>
+  <canvas id="gl"></canvas>
+  <div id="flash"></div>
 
-  <div id="status" class="hidden"><span id="statusText">&gt; awaiting connection_</span></div>
-
-  <div id="words" class="hidden" aria-hidden="true">
-    <div class="word" id="w0"></div>
-    <div class="word" id="w1"></div>
-    <div class="word" id="w2"></div>
-  </div>
-
-  <div id="intro">
-    <p class="intro-kicker">&gt; incoming_transmission</p>
-    <h1 class="intro-title">BẠN CÓ MỘT<br>TIN NHẮN</h1>
-    <p class="intro-sub">Một điều bất ngờ đang được mã hóa,<br>dành riêng cho hai bạn.</p>
-    <div class="tap-ind" aria-hidden="true"><span class="tap-ring r1"></span><span class="tap-ring r2"></span><span class="tap-dot"></span></div>
-  </div>
-
-  <div id="card" class="hidden">
-    <div class="card-head">
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      <span class="card-file">&gt; message_decoded.txt</span>
-    </div>
-    <h2 class="card-title">Mừng kỷ niệm<br>ngày cưới</h2>
-    <div id="cardBody"></div>
-    <p class="card-sign">— Mừng kỷ niệm ngày cưới · 01.11</p>
+  <div id="letter">
+    <p class="letter-kicker">Gửi Thu Hằng &amp; Tuấn Anh</p>
+    <p class="letter-body">Giữa triệu người, tìm thấy nhau đã là duyên lớn. Giữ được nhau qua bao năm tháng mới là phúc phần.<br><br>Chúc hai bạn mãi như đêm nay — đi đến đâu cũng có nhau, và năm nào cũng ngọt ngào như năm đầu tiên.</p>
+    <p class="letter-sign">— Mừng kỷ niệm ngày cưới · 01.11</p>
     <button id="replay" type="button">Xem lại từ đầu</button>
   </div>
 
   <button id="mute" class="hidden" type="button" aria-label="Bật hoặc tắt nhạc">
-    <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#7dff9a"/><path class="wv" d="M16 9.5a4 4 0 0 1 0 5M18.2 7.2a7.2 7.2 0 0 1 0 9.6" stroke="#7dff9a" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+    <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#ff9ec4"/><path class="wv" d="M16 9.5a4 4 0 0 1 0 5M18.2 7.2a7.2 7.2 0 0 1 0 9.6" stroke="#ff9ec4" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
   </button>
 
   <audio id="music" src="assets/audio/tim-em.mp3" loop preload="auto"></audio>
 </div>
 <script src="vendor/three-r128.min.js"></script>
-<script src="app.js?v=10"></script>
+<script src="vendor/three-bloom-r128.js"></script>
+<script src="app.js?v=11"></script>
 </body>
 </html>
