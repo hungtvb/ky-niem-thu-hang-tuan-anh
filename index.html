@@ -3,116 +3,48 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#060a12">
-<title>Một Đêm Trong Thành Phố — Thu Hằng × Tuấn Anh · 01.11</title>
-<link rel="stylesheet" href="style.css?v=9">
+<title>Matrix — Thu Hằng × Tuấn Anh · 01.11</title>
+<link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
+<div id="stage">
+  <canvas id="rain"></canvas>
+  <canvas id="gl" class="hidden-gl"></canvas>
+  <div id="vignette"></div>
 
-<div id="progress"><span id="progressFill"></span></div>
+  <div id="status" class="hidden"><span id="statusText">&gt; awaiting connection_</span></div>
 
-<div id="track">
+  <div id="words" class="hidden" aria-hidden="true">
+    <div class="word" id="w0"></div>
+    <div class="word" id="w1"></div>
+    <div class="word" id="w2"></div>
+  </div>
 
-  <!-- 0 · MỞ: phố đêm -->
-  <section class="scene" data-scene="0">
-    <img class="bg pos-open" src="assets/scenes/street.jpg" alt="">
-    <div class="shade shade-top"></div>
-    <div class="shade shade-bottom"></div>
-    <div id="titleCard">
-      <div class="tc-kicker">MỘT ĐÊM TRONG THÀNH PHỐ</div>
-      <div class="tc-date">01.11</div>
-      <div class="tc-names">THU HẰNG <span>×</span> TUẤN ANH</div>
-      <div class="tc-rule"></div>
-      <div class="tc-sub">KỶ NIỆM NGÀY CƯỚI</div>
+  <div id="intro">
+    <p class="intro-kicker">&gt; incoming_transmission</p>
+    <h1 class="intro-title">BẠN CÓ MỘT<br>TIN NHẮN</h1>
+    <p class="intro-sub">Một điều bất ngờ đang được mã hóa,<br>dành riêng cho hai bạn.</p>
+    <div class="tap-ind" aria-hidden="true"><span class="tap-ring r1"></span><span class="tap-ring r2"></span><span class="tap-dot"></span></div>
+  </div>
+
+  <div id="card" class="hidden">
+    <div class="card-head">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="card-file">&gt; message_decoded.txt</span>
     </div>
-    <div class="lamp-pulse" id="lampPulse"></div>
-    <div class="hotspot hotspot-full" data-hotspot="open"></div>
-  </section>
+    <h2 class="card-title">Mừng kỷ niệm<br>ngày cưới</h2>
+    <div id="cardBody"></div>
+    <p class="card-sign">— Mừng kỷ niệm ngày cưới · 01.11</p>
+    <button id="replay" type="button">Xem lại từ đầu</button>
+  </div>
 
-  <!-- 1 · CAFÉ -->
-  <section class="scene" data-scene="1">
-    <img class="bg" src="assets/scenes/cafe.jpg" alt="">
-    <div class="shade shade-bottom"></div>
-    <div class="sign sign-cafe" id="sign1">
-      <span class="sign-text neon-amber">GIỮA TRIỆU NGƯỜI</span>
-    </div>
-    <div class="hotspot" data-hotspot="sign" style="left:7%;top:22%;width:86%;height:25%"></div>
-    <div class="chapter">01 · CAFÉ KÍNH</div>
-  </section>
+  <button id="mute" class="hidden" type="button" aria-label="Bật hoặc tắt nhạc">
+    <svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#7dff9a"/><path class="wv" d="M16 9.5a4 4 0 0 1 0 5M18.2 7.2a7.2 7.2 0 0 1 0 9.6" stroke="#7dff9a" stroke-width="1.7" fill="none" stroke-linecap="round"/></svg>
+  </button>
 
-  <!-- 2 · GALLERY -->
-  <section class="scene" data-scene="2">
-    <img class="bg no-kb" src="assets/scenes/gallery-off.jpg" alt="">
-    <img class="bg no-kb bg-on" id="galleryOn" src="assets/scenes/gallery.jpg" alt="">
-    <div class="shade shade-bottom"></div>
-    <div class="sign sign-gallery" id="sign2">
-      <span class="sign-text">Tìm thấy nhau<br>là duyên</span>
-    </div>
-    <div class="hotspot" data-hotspot="sign" style="left:43%;top:38%;width:55%;height:39%"></div>
-    <div class="chapter">02 · PHÒNG TRANH</div>
-  </section>
-
-  <!-- 3 · PHỐ MƯA -->
-  <section class="scene" data-scene="3">
-    <img class="bg" src="assets/scenes/street.jpg" alt="">
-    <div class="shade shade-bottom"></div>
-    <div class="sign sign-street" id="sign3">
-      <span class="sign-text neon-amber">GIỮ NHAU<br>LÀ PHÚC</span>
-    </div>
-    <div class="hotspot" data-hotspot="sign" style="left:45%;top:28%;width:44%;height:23%"></div>
-    <div class="chapter">03 · PHỐ MƯA</div>
-  </section>
-
-  <!-- 4 · CẦU KÍNH: nhịp lặng -->
-  <section class="scene" data-scene="4">
-    <img class="bg" src="assets/scenes/bridge.jpg" alt="">
-    <div class="shade shade-top-soft"></div>
-    <div class="sign sign-bridge" id="sign4">
-      <div class="bridge-rule"></div>
-      <span class="sign-text">Bên nhau là nhà</span>
-      <div class="bridge-rule"></div>
-    </div>
-    <div class="pulse-dot" id="bridgePulse"></div>
-    <div class="hotspot hotspot-full" data-hotspot="sign"></div>
-    <div class="chapter">04 · CẦU KÍNH</div>
-  </section>
-
-  <!-- 5 · ROOFTOP -->
-  <section class="scene" data-scene="5">
-    <img class="bg pos-roof" src="assets/scenes/rooftop.jpg" alt="">
-    <div class="shade shade-bottom"></div>
-    <div class="sign sign-board" id="sign5">
-      <span class="board-line">THU</span>
-      <span class="board-line">HẰNG</span>
-      <span class="board-x">×</span>
-      <span class="board-line">TUẤN</span>
-      <span class="board-line">ANH</span>
-      <span class="board-date">01.11</span>
-    </div>
-    <div class="hotspot" data-hotspot="sign" style="left:66%;top:11%;width:34%;height:31%"></div>
-    <div class="chapter">05 · ROOFTOP</div>
-
-    <div id="letter" aria-hidden="true">
-      <div class="letter-kicker">KỶ NIỆM NGÀY CƯỚI · 01.11</div>
-      <div class="letter-title">Gửi Thu Hằng &amp; Tuấn Anh</div>
-      <p>Giữa triệu người, tìm thấy nhau đã là duyên lớn. Giữ được nhau qua bao năm tháng mới là phúc phần.</p>
-      <p>Chúc hai bạn mãi như đêm nay — đi đến đâu cũng có nhau, và năm nào cũng ngọt ngào như năm đầu tiên.</p>
-      <div class="letter-foot">MỘT ĐÊM TRONG THÀNH PHỐ</div>
-    </div>
-    <button id="replay" aria-label="Xem lại từ đầu">
-      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="#ffe9c9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.3"/><path d="M3 4v5h5"/></svg>
-    </button>
-  </section>
-
+  <audio id="music" src="assets/audio/tim-em.mp3" loop preload="auto"></audio>
 </div>
-
-<button id="mute" aria-label="Bật hoặc tắt nhạc">
-  <svg id="ico-on" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ffe9c9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z" fill="#ffe9c9" stroke="none"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.2 6a9 9 0 0 1 0 12"/></svg>
-  <svg id="ico-off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ffe9c9" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M11 5 6 9H3v6h3l5 4z" fill="#ffe9c9" stroke="none"/><line x1="16" y1="9" x2="22" y2="15"/><line x1="22" y1="9" x2="16" y2="15"/></svg>
-</button>
-
-<audio id="bgm" src="assets/audio/tim-em.mp3" loop preload="auto"></audio>
-
-<script src="app.js?v=9"></script>
+<script src="vendor/three-r128.min.js"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
