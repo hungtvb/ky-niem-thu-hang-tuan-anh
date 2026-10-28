@@ -18,15 +18,15 @@
 
   /* ================= timeline ================= */
   var IGNITE = 0.75;
-  var T_WRITE_END = IGNITE + 8.0;          // write clock 8.0s incl. final hold
+  var T_WRITE_END = IGNITE + 6.2;          // write clock 6.2s (v17: faster, reveals scaled x0.85)
   var T_GATHER_END = T_WRITE_END + 3.4;
-  var T_BEAT_END = T_GATHER_END + 3.6;     // auto-finale if nobody taps the heart
+  var T_BEAT_END = T_GATHER_END + 4.6;     // auto-finale if nobody taps the heart (4 x 1.15s beats = 4 beat photos)
   // finale beats, seconds from finale start:
   var F_COMPRESS = 1.25;                    // [0, 1.25)
   var F_NOVA_END = F_COMPRESS + 1.25;       // [1.25, 2.5)
   var F_FIRE_START = 2.1, F_FIRE_END = 5.9; // volleys inside
-  var F_REGROUP = 5.2;                      // embers start regrouping
-  var F_RAIN = 8.6;                         // word rain + date dissolves
+  var F_REGROUP = 4.8;                      // embers start regrouping (v17: faster; formation needs 2.42s, rain at 7.6 leaves 2.8s)
+  var F_RAIN = 7.6;                         // word rain + date dissolves
   var VOLLEYS = [2.1, 2.65, 3.2, 3.8, 4.4, 5.0];
   var PHASE_START = { ignite: 0, write: IGNITE, gather: T_WRITE_END, beat: T_GATHER_END };
 
@@ -136,8 +136,8 @@
   var LINES = ["Thu Hằng", "&", "Tuấn Anh"];
   var LINE_Y = [11.4, 0.8, -10.0];
   var LINE_W = [27, 8, 27.5];
-  var LINE_START = [0.3, 2.55, 4.35];
-  var LINE_DUR = [2.0, 0.75, 2.05];
+  var LINE_START = [0.25, 2.17, 3.70];
+  var LINE_DUR = [1.70, 0.64, 1.74];
   var textPts = null, textUniforms = null, textPositions = [], textReveals = [];
   var comet = null, cometTrail1 = null, cometTrail2 = null, lastReveal = 0;
   function buildText() {
@@ -330,6 +330,46 @@
     for (var i = 0; i < arr.length; i += 3) fn(i, arr);
     heartPts.geometry.attributes.position.needsUpdate = true;
   }
+  /* ================= beat photos: one portrait per heartbeat =================
+     4 portrait photos Tony sent 2026-10-28 (second batch, in his order).
+     During the beat phase a large portrait sits behind the particle heart
+     and changes on every 1.15s heartbeat cycle, so all 4 are seen across
+     the 4.6s beat phase. Same framed-canvas texture + bloom-darkened colour
+     as the rain photos, so bright backgrounds do not blow out. */
+  var BEAT_PHOTOS = [
+    { src: "assets/photos/beat-01.jpg", ar: 0.72 },
+    { src: "assets/photos/beat-02.jpg", ar: 0.72 },
+    { src: "assets/photos/beat-03.jpg", ar: 0.72 },
+    { src: "assets/photos/beat-04.jpg", ar: 0.72 }
+  ];
+  var beatPhoto = null, beatPhotoTex = [], beatPhotoIdx = -1, beatPhotoLoadedFlags = [];
+  (function buildBeatPhoto() {
+    BEAT_PHOTOS.forEach(function (p, pi) {
+      var cw = Math.round(720 * p.ar), ch = 720;
+      var cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+      var tex = new THREE.CanvasTexture(cv);
+      beatPhotoTex.push(tex);
+      beatPhotoLoadedFlags.push(false);
+      var img = new Image();
+      img.onload = function () {
+        beatPhotoLoadedFlags[pi] = true;
+        var g = cv.getContext("2d");
+        var r = Math.round(Math.min(cw, ch) * 0.04);
+        g.save(); roundRectPath(g, 0, 0, cw, ch, r); g.clip();
+        g.drawImage(img, 0, 0, cw, ch);
+        g.lineWidth = Math.max(8, Math.round(Math.min(cw, ch) * 0.02));
+        g.strokeStyle = "rgba(255,158,196,0.95)"; g.stroke(); g.restore();
+        tex.needsUpdate = true;
+      };
+      img.src = p.src;
+    });
+    var m = new THREE.SpriteMaterial({ map: beatPhotoTex[0], color: 0x8f8f8f, transparent: true, opacity: 0, depthWrite: false });
+    beatPhoto = new THREE.Sprite(m);
+    beatPhoto.position.set(0, 0, -8);
+    beatPhoto.scale.set(30 * 0.72, 30, 1);
+    beatPhoto.visible = false;
+    world.add(beatPhoto);
+  })();
   function setHeartColors(k) { // k: 0 = home colours, 1 = white-hot
     var arr = heartPts.geometry.attributes.color.array;
     for (var i = 0; i < arr.length; i++) {
@@ -476,9 +516,12 @@
   var PHRASES = ["Thu Hằng × Tuấn Anh", "Giữa triệu người", "Tìm thấy nhau là duyên",
     "Giữ nhau là phúc", "Bên nhau là nhà", "Mãi bên nhau", "Ngọt ngào như năm đầu tiên",
     "Mừng kỷ niệm ngày cưới", "01.11", "Happy Anniversary"];
-  /* 9 photos Tony sent 2026-10-28, in the order he sent them. Aspect ratios
-     measured from the files on disk (not guessed): landscape ~1.4-1.5,
-     portrait 0.56-0.75. Sprites keep their own ratio, never stretched. */
+  /* 11 rain photos in the order Tony sent them. Aspect ratios measured
+     from the files on disk (not guessed): landscape ~1.4-1.5, portrait
+     0.56-0.75. Sprites keep their own ratio, never stretched.
+     photo-01..09: first batch 2026-10-28. photo-10..11: the 2 landscape
+     photos from the second batch 2026-10-28 (the 4 portraits from that
+     batch became the beat photos instead). */
   var PHOTOS = [
     { src: "assets/photos/photo-01.jpg", ar: 1.40 },
     { src: "assets/photos/photo-02.jpg", ar: 1.40 },
@@ -488,7 +531,9 @@
     { src: "assets/photos/photo-06.jpg", ar: 0.56 },
     { src: "assets/photos/photo-07.jpg", ar: 0.75 },
     { src: "assets/photos/photo-08.jpg", ar: 0.75 },
-    { src: "assets/photos/photo-09.jpg", ar: 0.75 }
+    { src: "assets/photos/photo-09.jpg", ar: 0.75 },
+    { src: "assets/photos/photo-10.jpg", ar: 1.38 },
+    { src: "assets/photos/photo-11.jpg", ar: 1.38 }
   ];
   function roundRectPath(g, x, y, w, h, r) {
     g.beginPath();
@@ -566,7 +611,7 @@
         map: tex, color: 0x8f8f8f, transparent: true, opacity: 0, depthWrite: false
       });
       var s = new THREE.Sprite(m);
-      var hgt = p.ar >= 1 ? 6.8 : 9.0;
+      var hgt = p.ar >= 1 ? 9.2 : 12.0; // v17: rain photos ~35% larger, per Tony
       s.scale.set(hgt * p.ar, hgt, 1);
       s.userData = { speed: 0, swayPh: Math.random() * Math.PI * 2, baseOp: 0.95,
         kind: "photo", loaded: false, baseSx: hgt * p.ar, baseSy: hgt };
@@ -714,7 +759,7 @@
     /* Rain photos burn out under full bloom (threshold 0.12, strength 0.9):
        pale backgrounds glow to white. Drop bloom during rain so photos
        keep their colours; words still read from their own canvas glow. */
-    if (bloomPass) bloomPass.strength = phase === "compress" ? 0.55 : (phase === "rain" ? 0.3 : 0.9);
+    if (bloomPass) bloomPass.strength = phase === "compress" ? 0.55 : (phase === "rain" || phase === "beat" ? 0.3 : 0.9);
     var boostTarget = phase === "compress" ? 1.07 : 1;
     worldBoost += (boostTarget - worldBoost) * Math.min(1, dt * 2.5);
     world.scale.setScalar(worldBase * worldBoost);
@@ -769,6 +814,7 @@
     // ---- heart: gather / beat / compress / burst ----
     var inFinale = finaleStart > 0;
     var hVis = started && !inFinale && (phase === "gather" || phase === "beat");
+    if (beatPhoto && phase !== "beat") beatPhoto.visible = false;
     var burstVis = inFinale && (phase === "compress" || phase === "nova" || phase === "fire");
     heartPts.visible = hVis || burstVis;
     if (phase === "gather") {
@@ -791,6 +837,14 @@
       heartPts.position.z = 0;
       heartPts.scale.setScalar(1 + 0.085 * beatPulse(bt));
       heartPts.rotation.y = dragRotY + (pDown ? 0 : 0.15 * Math.sin(bt * 0.7));
+      if (beatPhoto) {
+        var bi = Math.floor(bt / 1.15) % BEAT_PHOTOS.length;
+        if (bi !== beatPhotoIdx) { beatPhotoIdx = bi; beatPhoto.material.map = beatPhotoTex[bi]; beatPhoto.material.map.needsUpdate = true; }
+        beatPhoto.visible = true;
+        beatPhoto.material.opacity = 0.95 * clamp01(bt / 0.4);
+        var bp = 1 + 0.04 * beatPulse(bt);
+        beatPhoto.scale.set(30 * 0.72 * bp, 30 * bp, 1);
+      }
     } else if (phase === "compress") {
       var ck = smooth(f / F_COMPRESS);
       var amp = 0.5 * ck * ck;
@@ -960,6 +1014,10 @@
     },
     textTotal: function () { return textReveals.length; },
     rainVisible: function () { var n = 0; rainSprites.forEach(function (s) { if (s.visible && s.material.opacity > 0.25) n++; }); return n; },
+    beatPhotoIndex: function () { return beatPhotoIdx; },
+    beatPhotoTotal: function () { return BEAT_PHOTOS.length; },
+    beatPhotoVisible: function () { return !!(beatPhoto && beatPhoto.visible && beatPhoto.material.opacity > 0.25); },
+    beatPhotoLoaded: function () { var n = 0; beatPhotoLoadedFlags.forEach(function (f) { if (f) n++; }); return n; },
     photoRainTotal: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo") n++; }); return n; },
     photoRainLoaded: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.userData.loaded) n++; }); return n; },
     photoRainVisible: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.visible && s.material.opacity > 0.25 && s.userData.loaded) n++; }); return n; },
