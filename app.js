@@ -18,16 +18,16 @@
 
   /* ================= timeline ================= */
   var IGNITE = 0.75;
-  var T_WRITE_END = IGNITE + 6.2;          // write clock 6.2s (v17: faster, reveals scaled x0.85)
-  var T_GATHER_END = T_WRITE_END + 3.4;
-  var T_BEAT_END = T_GATHER_END + 4.6;     // auto-finale if nobody taps the heart (4 x 1.15s beats = 4 beat photos)
-  // finale beats, seconds from finale start:
-  var F_COMPRESS = 1.25;                    // [0, 1.25)
-  var F_NOVA_END = F_COMPRESS + 1.25;       // [1.25, 2.5)
-  var F_FIRE_START = 2.1, F_FIRE_END = 5.9; // volleys inside
-  var F_REGROUP = 4.8;                      // embers start regrouping (v17: faster; formation needs 2.42s, rain at 7.6 leaves 2.8s)
-  var F_RAIN = 7.6;                         // word rain + date dissolves
-  var VOLLEYS = [2.1, 2.65, 3.2, 3.8, 4.4, 5.0];
+  var T_WRITE_END = IGNITE + 5.5;          // v20: global speed-up, write clock 5.5s (reveals scaled so last reveal 4.79s + 0.7s hold)
+  var T_GATHER_END = T_WRITE_END + 2.6;    // v20: gather 2.6s (stagger scaled to /1.7 so it still completes, no snap into beat)
+  var T_BEAT_END = T_GATHER_END + 4.6;     // auto-finale if nobody taps the heart (ring needs its 4.6s)
+  // finale beats, seconds from finale start (v20: global speed-up):
+  var F_COMPRESS = 1.0;                     // [0, 1.0)
+  var F_NOVA_END = F_COMPRESS + 1.25;       // [1.0, 2.25)
+  var F_FIRE_START = 1.9, F_FIRE_END = 4.5; // volleys inside
+  var F_REGROUP = 3.8;                      // embers start regrouping (formation needs 2.42s, rain at 6.4 leaves 2.6s)
+  var F_RAIN = 6.4;                         // word rain + date dissolves
+  var VOLLEYS = [1.9, 2.3, 2.7, 3.1, 3.5, 3.9];
   var PHASE_START = { ignite: 0, write: IGNITE, gather: T_WRITE_END, beat: T_GATHER_END };
 
   /* ================= three setup ================= */
@@ -136,8 +136,8 @@
   var LINES = ["Thu Hằng", "&", "Tuấn Anh"];
   var LINE_Y = [11.4, 0.8, -10.0];
   var LINE_W = [27, 8, 27.5];
-  var LINE_START = [0.25, 2.17, 3.70];
-  var LINE_DUR = [1.70, 0.64, 1.74];
+  var LINE_START = [0.22, 1.91, 3.26];
+  var LINE_DUR = [1.50, 0.56, 1.53];
   var textPts = null, textUniforms = null, textPositions = [], textReveals = [];
   var comet = null, cometTrail1 = null, cometTrail2 = null, lastReveal = 0;
   function buildText() {
@@ -374,23 +374,56 @@
     beatPhoto.visible = false;
     scene.add(beatPhoto);
   })();
-  /* v19: 3D photo ring for the beat phase. The 4 portrait beat photos
-     ride a carousel around a vertical axis below the heart: x/z on a
-     circle of radius 14, rotating slowly, near cards brighter and larger
-     (perspective + opacity by depth) than far cards. Sprites always face
-     the camera, so the ring reads as a 3D carousel, not a flat row. */
-  var ringPhotos = [], ringFrontIdx = 0, beatBgIdx = -1, beatBgSet = false;
+  /* v20: 3D photo ring for the beat phase, now 8 portrait photos (enough
+     for a full circle at 45 deg apart, vs 4 at 90 deg with big gaps).
+     The 4 beat wedding portraits + the 4 portrait photos from the rain
+     set (photo-06..09). The wedding hero photo is NOT in the ring, so
+     the final reveal is not spoiled. Cards ride a carousel around a
+     vertical axis below the heart: x/z on a circle of radius 14,
+     rotating, near cards brighter and larger (perspective + opacity by
+     depth) than far cards. Sprites always face the camera, so the ring
+     reads as a 3D carousel, not a flat row. */
+  var RING_PHOTOS = [
+    { src: "assets/photos/beat-01.jpg", ar: 0.72 },
+    { src: "assets/photos/beat-02.jpg", ar: 0.72 },
+    { src: "assets/photos/beat-03.jpg", ar: 0.72 },
+    { src: "assets/photos/beat-04.jpg", ar: 0.72 },
+    { src: "assets/photos/photo-06.jpg", ar: 0.56 },
+    { src: "assets/photos/photo-07.jpg", ar: 0.75 },
+    { src: "assets/photos/photo-08.jpg", ar: 0.75 },
+    { src: "assets/photos/photo-09.jpg", ar: 0.75 }
+  ];
+  var ringPhotos = [], ringFrontIdx = 0, ringFrontBeatIdx = 0, beatBgIdx = -1, beatBgSet = false;
   (function buildRingPhotos() {
-    BEAT_PHOTOS.forEach(function (p, pi) {
-      var m = new THREE.SpriteMaterial({ map: beatPhotoTex[pi], color: 0x9a9a9a, transparent: true, opacity: 0, depthWrite: false });
+    RING_PHOTOS.forEach(function (p, pi) {
+      var tex;
+      if (pi < BEAT_PHOTOS.length) {
+        tex = beatPhotoTex[pi];
+      } else {
+        var cw = Math.round(720 * p.ar), ch = 720;
+        var cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+        tex = new THREE.CanvasTexture(cv);
+        var img = new Image();
+        img.onload = function () {
+          var g = cv.getContext("2d");
+          var r = Math.round(Math.min(cw, ch) * 0.04);
+          g.save(); roundRectPath(g, 0, 0, cw, ch, r); g.clip();
+          g.drawImage(img, 0, 0, cw, ch);
+          g.lineWidth = Math.max(8, Math.round(Math.min(cw, ch) * 0.02));
+          g.strokeStyle = "rgba(255,158,196,0.95)"; g.stroke(); g.restore();
+          tex.needsUpdate = true;
+        };
+        img.src = p.src;
+      }
+      var m = new THREE.SpriteMaterial({ map: tex, color: 0x9a9a9a, transparent: true, opacity: 0, depthWrite: false });
       var s = new THREE.Sprite(m);
-      s.scale.set(11 * 0.72, 11, 1);
+      s.scale.set(11 * p.ar, 11, 1);
       s.visible = false;
       world.add(s); ringPhotos.push(s);
     });
   })();
   function updateRingPhotos(now, fade) {
-    var rot = now * 0.4, bestZ = -1e9, bestI = 0;
+    var rot = now * 0.65, bestZ = -1e9, bestI = 0, bestBeatZ = -1e9, bestBeatI = 0;
     ringPhotos.forEach(function (s, i) {
       var a = rot + i * Math.PI * 2 / ringPhotos.length;
       var x = 14 * Math.sin(a), z = 14 * Math.cos(a);
@@ -398,8 +431,10 @@
       var depth = (z + 14) / 28;
       s.material.opacity = fade * (0.45 + 0.5 * depth);
       if (z > bestZ) { bestZ = z; bestI = i; }
+      if (i < BEAT_PHOTOS.length && z > bestBeatZ) { bestBeatZ = z; bestBeatI = i; }
     });
     ringFrontIdx = bestI;
+    ringFrontBeatIdx = bestBeatI;
   }
   var beatBgBaseW = 0, beatBgBaseH = 0;
   function updateBeatBgScale() {
@@ -706,7 +741,7 @@
   var started = false, filmStart = 0, finaleStart = -1, letterShown = false, heroShown = false;
   /* Rain runs this long, then every word + photo is pulled to the centre
      and shrinks away while the hero wedding photo scales in. */
-  var HERO_AT = 12, GATHER_DUR = 1.8;
+  var HERO_AT = 10, GATHER_DUR = 1.5; // v20: rain 10s (was 12s), gather 1.5s
   var burstPos = null, burstVel = null, burstLive = false;
   var volleySpawned = VOLLEYS.map(function () { return false; });
   var dateFormK = 0;
@@ -865,23 +900,32 @@
       var bgOn = started && inFinale;
       beatPhoto.visible = bgOn;
       if (bgOn) {
-        if (!beatBgSet) { beatBgSet = true; beatBgIdx = ringFrontIdx; beatPhoto.material.map = beatPhotoTex[beatBgIdx]; beatPhoto.material.map.needsUpdate = true; }
-        beatPhoto.material.opacity = phase === "rain" ? 0.35 : 0.6;
+        if (!beatBgSet) { beatBgSet = true; beatBgIdx = ringFrontBeatIdx; beatPhoto.material.map = beatPhotoTex[beatBgIdx]; beatPhoto.material.map.needsUpdate = true; }
+        /* v20 crossfade: during compress the background fades IN while
+           the ring fades OUT (below), so beat -> finale is one
+           continuous move, not a hard cut. */
+        var bgOp2 = phase === "rain" ? 0.35 : 0.6;
+        if (phase === "compress") bgOp2 = 0.6 * smooth(f / F_COMPRESS);
+        beatPhoto.material.opacity = bgOp2;
         beatPhoto.scale.set(beatBgBaseW, beatBgBaseH, 1);
       }
     }
-    /* v19: photo ring below the heart, beat phase only. */
+    /* v20: photo ring below the heart, beat phase + fading out through
+       compress, so it crossfades into the finale background above. */
     if (ringPhotos.length) {
-      var ringOn = started && !inFinale && phase === "beat";
+      var ringOn = started && (phase === "beat" || phase === "compress");
       ringPhotos.forEach(function (s) { s.visible = ringOn; });
-      if (ringOn) updateRingPhotos(now, clamp01((ft - T_GATHER_END) / 0.4));
+      if (ringOn) {
+        var ringFade = phase === "beat" ? clamp01((ft - T_GATHER_END) / 0.4) : (1 - smooth(f / F_COMPRESS));
+        updateRingPhotos(now, ringFade);
+      }
     }
     var burstVis = inFinale && (phase === "compress" || phase === "nova" || phase === "fire");
     heartPts.visible = hVis || burstVis;
     if (phase === "gather") {
-      var gt = ft - T_WRITE_END, gg = smooth(gt / 3.4);
+      var gt = ft - T_WRITE_END, gg = smooth(gt / 2.6);
       setHeartPos(function (i, arr) {
-        var p = i / 3, k2 = smooth((gt - heartStag[p]) / 2.5);
+        var p = i / 3, k2 = smooth((gt - heartStag[p]) / 1.7);
         arr[i] = heartStart[i] + (heartHome[i] - heartStart[i]) * k2;
         arr[i + 1] = heartStart[i + 1] + (heartHome[i + 1] - heartStart[i + 1]) * k2;
         arr[i + 2] = heartStart[i + 2] + (heartHome[i + 2] - heartStart[i + 2]) * k2;
@@ -1074,6 +1118,7 @@
     beatPhotoTotal: function () { return BEAT_PHOTOS.length; },
     beatPhotoVisible: function () { return !!(beatPhoto && beatPhoto.visible && beatPhoto.material.opacity > 0.25); },
     ringVisible: function () { var n = 0; ringPhotos.forEach(function (s) { if (s.visible && s.material.opacity > 0.25) n++; }); return n; },
+    ringTotal: function () { return ringPhotos.length; },
     ringFrontIndex: function () { return ringFrontIdx; },
     beatBgIndex: function () { return beatBgIdx; },
     heartScale: function () { return heartPts ? heartPts.scale.x : 0; },
