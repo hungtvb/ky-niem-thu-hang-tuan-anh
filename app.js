@@ -4,11 +4,12 @@
    into a neon streak that handwrites the couple's names -> star dust gathers
    into a beating 3D heart -> FINALE in 4 beats: compress (silence) ->
    supernova -> fireworks volleys -> embers regroup into "01.11" -> word + photo rain
-   + letter in the calm zone. All timing absolute (headless-safe). */
+   -> rain gathers into the hero wedding photo -> letter in the calm zone.
+   All timing absolute (headless-safe). */
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var stage = $("stage"), glCv = $("gl"), flashEl = $("flash");
-  var letterEl = $("letter"), muteBtn = $("mute"), music = $("music");
+  var letterEl = $("letter"), heroEl = $("hero"), muteBtn = $("mute"), music = $("music");
 
   function perfNow() { return performance.now() / 1000; }
   function clamp01(v) { return Math.max(0, Math.min(1, v)); }
@@ -544,7 +545,8 @@
       var s = new THREE.Sprite(m);
       var wdt = 6.5 + PHRASES[ti].length * 0.42;
       s.scale.set(wdt, wdt * 0.222, 1);
-      s.userData = { speed: 0, swayPh: Math.random() * Math.PI * 2, baseOp: 0.8, ti: ti };
+      s.userData = { speed: 0, swayPh: Math.random() * Math.PI * 2, baseOp: 0.8, ti: ti,
+        baseSx: wdt, baseSy: wdt * 0.222 };
       respawnWord(s, true);
       s.visible = false;
       world.add(s); rainSprites.push(s);
@@ -567,7 +569,7 @@
       var hgt = p.ar >= 1 ? 6.8 : 9.0;
       s.scale.set(hgt * p.ar, hgt, 1);
       s.userData = { speed: 0, swayPh: Math.random() * Math.PI * 2, baseOp: 0.95,
-        kind: "photo", loaded: false };
+        kind: "photo", loaded: false, baseSx: hgt * p.ar, baseSy: hgt };
       loadPhotoFrame(s, p.src);
       respawnWord(s, true);
       s.visible = false;
@@ -615,7 +617,10 @@
   window.addEventListener("resize", fitWorld);
 
   /* ================= flow ================= */
-  var started = false, filmStart = 0, finaleStart = -1, letterShown = false;
+  var started = false, filmStart = 0, finaleStart = -1, letterShown = false, heroShown = false;
+  /* Rain runs this long, then every word + photo is pulled to the centre
+     and shrinks away while the hero wedding photo scales in. */
+  var HERO_AT = 12, GATHER_DUR = 1.8;
   var burstPos = null, burstVel = null, burstLive = false;
   var volleySpawned = VOLLEYS.map(function () { return false; });
   var dateFormK = 0;
@@ -869,34 +874,57 @@
       }
     } else datePts.visible = false;
 
-    // ---- dust + word rain + letter ----
+    // ---- dust + word/photo rain -> gather into hero -> letter ----
     var rainOn = phase === "rain";
     dustPts.visible = rainOn;
     if (rainOn) {
       var rt = f - F_RAIN;
-      dustPts.material.opacity = 0.5 * clamp01(rt / 1.6);
       dustPts.rotation.y = now * 0.02;
       var ramp = clamp01(rt / 1.6);
-      rainSprites.forEach(function (s) {
-        s.visible = true;
-        s.position.y -= s.userData.speed * dt * (0.4 + 0.6 * ramp);
-        s.position.x += Math.sin(now * 0.7 + s.userData.swayPh) * dt * 0.7;
-        if (s.position.y < -32) respawnWord(s, false);
-        s.material.opacity = s.userData.baseOp * ramp;
-      });
-      for (var a = 0; a < rainSprites.length; a++) {
-        for (var b = a + 1; b < rainSprites.length; b++) {
-          var A = rainSprites[a], B = rainSprites[b];
-          var dx = Math.abs(A.position.x - B.position.x);
-          var dy = A.position.y - B.position.y;
-          var needX = (A.scale.x + B.scale.x) * 0.36;
-          if (dx < needX && Math.abs(dy) < 2.7) {
-            var push = (2.7 - Math.abs(dy)) * 0.9 * Math.min(1, dt * 10) * (dy >= 0 ? 1 : -1);
-            A.position.y += push; B.position.y -= push;
+      if (rt < HERO_AT) {
+        dustPts.material.opacity = 0.5 * ramp;
+        rainSprites.forEach(function (s) {
+          s.visible = true;
+          s.scale.set(s.userData.baseSx, s.userData.baseSy, 1);
+          s.position.y -= s.userData.speed * dt * (0.4 + 0.6 * ramp);
+          s.position.x += Math.sin(now * 0.7 + s.userData.swayPh) * dt * 0.7;
+          if (s.position.y < -32) respawnWord(s, false);
+          s.material.opacity = s.userData.baseOp * ramp;
+        });
+        for (var a = 0; a < rainSprites.length; a++) {
+          for (var b = a + 1; b < rainSprites.length; b++) {
+            var A = rainSprites[a], B = rainSprites[b];
+            var dx = Math.abs(A.position.x - B.position.x);
+            var dy = A.position.y - B.position.y;
+            var needX = (A.scale.x + B.scale.x) * 0.36;
+            if (dx < needX && Math.abs(dy) < 2.7) {
+              var push = (2.7 - Math.abs(dy)) * 0.9 * Math.min(1, dt * 10) * (dy >= 0 ? 1 : -1);
+              A.position.y += push; B.position.y -= push;
+            }
           }
         }
+      } else {
+        /* Gather: words + photos fly to the centre and shrink away while
+           the hero wedding photo scales in. The letter waits until the
+           hero is fully in place, then the hero settles up out of its way. */
+        var gk = clamp01((rt - HERO_AT) / GATHER_DUR);
+        if (!heroShown) { heroShown = true; heroEl.classList.add("show"); }
+        dustPts.material.opacity = 0.5 * (1 - gk);
+        var pull = Math.min(1, dt * 3);
+        rainSprites.forEach(function (s) {
+          s.visible = gk < 1;
+          s.position.x += (0 - s.position.x) * pull;
+          s.position.y += (0 - s.position.y) * pull;
+          var sc = 1 - gk;
+          s.scale.set(s.userData.baseSx * sc, s.userData.baseSy * sc, 1);
+          s.material.opacity = s.userData.baseOp * sc;
+        });
+        if (rt > HERO_AT + GATHER_DUR + 1.0 && !letterShown) {
+          letterShown = true;
+          heroEl.classList.add("settled");
+          letterEl.classList.add("show");
+        }
       }
-      if (rt > 1.5 && !letterShown) { letterShown = true; letterEl.classList.add("show"); }
     } else {
       rainSprites.forEach(function (s) { s.visible = false; });
     }
@@ -934,6 +962,7 @@
     photoRainLoaded: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.userData.loaded) n++; }); return n; },
     photoRainVisible: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.visible && s.material.opacity > 0.25 && s.userData.loaded) n++; }); return n; },
     letterShown: function () { return letterShown; },
+    heroShown: function () { return heroShown; },
     dateFormed: function () { return dateFormK; },
     volleysActive: function () { return volleys.length; },
     musicPlaying: function () { return !music.paused; }
