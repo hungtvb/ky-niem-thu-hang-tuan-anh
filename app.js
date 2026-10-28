@@ -374,6 +374,33 @@
     beatPhoto.visible = false;
     scene.add(beatPhoto);
   })();
+  /* v19: 3D photo ring for the beat phase. The 4 portrait beat photos
+     ride a carousel around a vertical axis below the heart: x/z on a
+     circle of radius 14, rotating slowly, near cards brighter and larger
+     (perspective + opacity by depth) than far cards. Sprites always face
+     the camera, so the ring reads as a 3D carousel, not a flat row. */
+  var ringPhotos = [], ringFrontIdx = 0, beatBgIdx = -1, beatBgSet = false;
+  (function buildRingPhotos() {
+    BEAT_PHOTOS.forEach(function (p, pi) {
+      var m = new THREE.SpriteMaterial({ map: beatPhotoTex[pi], color: 0x9a9a9a, transparent: true, opacity: 0, depthWrite: false });
+      var s = new THREE.Sprite(m);
+      s.scale.set(11 * 0.72, 11, 1);
+      s.visible = false;
+      world.add(s); ringPhotos.push(s);
+    });
+  })();
+  function updateRingPhotos(now, fade) {
+    var rot = now * 0.4, bestZ = -1e9, bestI = 0;
+    ringPhotos.forEach(function (s, i) {
+      var a = rot + i * Math.PI * 2 / ringPhotos.length;
+      var x = 14 * Math.sin(a), z = 14 * Math.cos(a);
+      s.position.set(x, -16, z);
+      var depth = (z + 14) / 28;
+      s.material.opacity = fade * (0.45 + 0.5 * depth);
+      if (z > bestZ) { bestZ = z; bestI = i; }
+    });
+    ringFrontIdx = bestI;
+  }
   var beatBgBaseW = 0, beatBgBaseH = 0;
   function updateBeatBgScale() {
     if (!beatPhoto) return;
@@ -828,22 +855,26 @@
     // ---- heart: gather / beat / compress / burst ----
     var inFinale = finaleStart > 0;
     var hVis = started && !inFinale && (phase === "gather" || phase === "beat");
-    /* v18: beat photo is a full-screen background from the beat phase to
-       the end. It stays on the last beat photo through the finale (the
-       photo the user tapped on, or beat-04 on auto-finale). Dimmed during
-       the finale so fireworks / date stay readable, dimmer still during
-       rain so the falling words + photos stay on top. The hero DOM photo
-       covers it at the very end, so this is the background until then. */
+    /* v19: NO background photo during the beat phase anymore (Tony).
+       The background now starts only at the finale, on the ring photo
+       that was front-most when the finale triggered, and stays to the
+       end. Dimmed during the finale so fireworks / date stay readable,
+       dimmer still during rain so the falling words + photos stay on
+       top. The hero DOM photo covers it at the very end. */
     if (beatPhoto) {
-      var bgOn = started && (phase === "beat" || inFinale);
+      var bgOn = started && inFinale;
       beatPhoto.visible = bgOn;
       if (bgOn) {
-        var bgOp = phase === "beat" ? 0.9 : (phase === "rain" ? 0.35 : 0.6);
-        if (phase === "beat") bgOp *= clamp01((ft - T_GATHER_END) / 0.4);
-        beatPhoto.material.opacity = bgOp;
-        var bgPulse = phase === "beat" ? (1 + 0.04 * beatPulse(ft - T_GATHER_END)) : 1;
-        beatPhoto.scale.set(beatBgBaseW * bgPulse, beatBgBaseH * bgPulse, 1);
+        if (!beatBgSet) { beatBgSet = true; beatBgIdx = ringFrontIdx; beatPhoto.material.map = beatPhotoTex[beatBgIdx]; beatPhoto.material.map.needsUpdate = true; }
+        beatPhoto.material.opacity = phase === "rain" ? 0.35 : 0.6;
+        beatPhoto.scale.set(beatBgBaseW, beatBgBaseH, 1);
       }
+    }
+    /* v19: photo ring below the heart, beat phase only. */
+    if (ringPhotos.length) {
+      var ringOn = started && !inFinale && phase === "beat";
+      ringPhotos.forEach(function (s) { s.visible = ringOn; });
+      if (ringOn) updateRingPhotos(now, clamp01((ft - T_GATHER_END) / 0.4));
     }
     var burstVis = inFinale && (phase === "compress" || phase === "nova" || phase === "fire");
     heartPts.visible = hVis || burstVis;
@@ -858,19 +889,17 @@
       heartPts.material.opacity = clamp01(gt * 1.6);
       heartPts.material.size = 0.8;
       heartPts.position.z = -16 * (1 - gg);
-      heartPts.scale.setScalar(0.82 + 0.18 * gg);
+      heartPts.position.y = 6 * gg; // v19: heart rises as it gathers, so beat starts small + up with no snap
+      heartPts.scale.setScalar((0.82 + 0.18 * gg) * 0.85); // v19: heart ~15% smaller
       heartPts.rotation.y = 0.12 * Math.sin(gt * 0.8);
     } else if (phase === "beat") {
       var bt = ft - T_GATHER_END;
       setHeartPos(function (i, arr) { arr[i] = heartHome[i]; arr[i + 1] = heartHome[i + 1]; arr[i + 2] = heartHome[i + 2]; });
       heartPts.material.opacity = 1;
       heartPts.position.z = 0;
-      heartPts.scale.setScalar(1 + 0.085 * beatPulse(bt));
+      heartPts.position.y = 6; // v19: heart up, ring below it
+      heartPts.scale.setScalar(0.85 * (1 + 0.085 * beatPulse(bt)));
       heartPts.rotation.y = dragRotY + (pDown ? 0 : 0.15 * Math.sin(bt * 0.7));
-      if (beatPhoto) {
-        var bi = Math.floor(bt / 1.15) % BEAT_PHOTOS.length;
-        if (bi !== beatPhotoIdx) { beatPhotoIdx = bi; beatPhoto.material.map = beatPhotoTex[bi]; beatPhoto.material.map.needsUpdate = true; }
-      }
     } else if (phase === "compress") {
       var ck = smooth(f / F_COMPRESS);
       var amp = 0.5 * ck * ck;
@@ -881,8 +910,9 @@
       });
       setHeartColors(ck * 0.8);
       heartPts.material.opacity = 1;
-      heartPts.scale.setScalar(1 - 0.42 * ck);
+      heartPts.scale.setScalar(0.85 * (1 - 0.42 * ck));
       heartPts.position.z = 0;
+      heartPts.position.y = 6 * (1 - ck); // v19: heart drops back to centre as it compresses
     } else if (phase === "nova" || phase === "fire") {
       if (burstLive) {
         var arr2 = heartPts.geometry.attributes.position.array;
@@ -1043,6 +1073,11 @@
     beatPhotoIndex: function () { return beatPhotoIdx; },
     beatPhotoTotal: function () { return BEAT_PHOTOS.length; },
     beatPhotoVisible: function () { return !!(beatPhoto && beatPhoto.visible && beatPhoto.material.opacity > 0.25); },
+    ringVisible: function () { var n = 0; ringPhotos.forEach(function (s) { if (s.visible && s.material.opacity > 0.25) n++; }); return n; },
+    ringFrontIndex: function () { return ringFrontIdx; },
+    beatBgIndex: function () { return beatBgIdx; },
+    heartScale: function () { return heartPts ? heartPts.scale.x : 0; },
+    heartY: function () { return heartPts ? heartPts.position.y : 0; },
     beatBgOpacity: function () { return beatPhoto ? beatPhoto.material.opacity : 0; },
     beatBgScaleH: function () { return beatPhoto ? beatPhoto.scale.y : 0; },
     beatPhotoLoaded: function () { var n = 0; beatPhotoLoadedFlags.forEach(function (f) { if (f) n++; }); return n; },
