@@ -365,11 +365,24 @@
     });
     var m = new THREE.SpriteMaterial({ map: beatPhotoTex[0], color: 0x8f8f8f, transparent: true, opacity: 0, depthWrite: false });
     beatPhoto = new THREE.Sprite(m);
-    beatPhoto.position.set(0, 0, -8);
-    beatPhoto.scale.set(30 * 0.72, 30, 1);
+    /* v18: full-screen background, not a framed card. Added to the scene
+       (not world) so world scaling does not shrink it, at z=-40 behind
+       every rain sprite (z>=-36), firework, date and heart (z>=0), so
+       those all read on top of the photo. Cover scale is set in
+       updateBeatBgScale() from the camera frustum at that depth. */
+    beatPhoto.position.set(0, 0, -40);
     beatPhoto.visible = false;
-    world.add(beatPhoto);
+    scene.add(beatPhoto);
   })();
+  var beatBgBaseW = 0, beatBgBaseH = 0;
+  function updateBeatBgScale() {
+    if (!beatPhoto) return;
+    var dist = 58 - (-40);
+    var tanH2 = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    var visH2 = 2 * dist * tanH2, visW2 = visH2 * camera.aspect;
+    beatBgBaseH = Math.max(visH2, visW2 / 0.72) * 1.05;
+    beatBgBaseW = beatBgBaseH * 0.72;
+  }
   function setHeartColors(k) { // k: 0 = home colours, 1 = white-hot
     var arr = heartPts.geometry.attributes.color.array;
     for (var i = 0; i < arr.length; i++) {
@@ -654,6 +667,7 @@
     var visH = 2 * 58 * tanH, visW = visH * camera.aspect;
     worldBase = Math.min(1.12, visW * 0.95 / 33.5, visH * 0.94 / 31);
     world.scale.setScalar(worldBase * worldBoost);
+    updateBeatBgScale();
     if (textUniforms) {
       textUniforms.uGroup.value = worldBase;
       textUniforms.uScale.value = renderer.domElement.height / (2 * tanH);
@@ -759,7 +773,7 @@
     /* Rain photos burn out under full bloom (threshold 0.12, strength 0.9):
        pale backgrounds glow to white. Drop bloom during rain so photos
        keep their colours; words still read from their own canvas glow. */
-    if (bloomPass) bloomPass.strength = phase === "compress" ? 0.55 : (phase === "rain" || phase === "beat" ? 0.3 : 0.9);
+    if (bloomPass) bloomPass.strength = (phase === "beat" || phase === "rain" || finaleStart > 0) ? 0.3 : 0.9;
     var boostTarget = phase === "compress" ? 1.07 : 1;
     worldBoost += (boostTarget - worldBoost) * Math.min(1, dt * 2.5);
     world.scale.setScalar(worldBase * worldBoost);
@@ -814,7 +828,23 @@
     // ---- heart: gather / beat / compress / burst ----
     var inFinale = finaleStart > 0;
     var hVis = started && !inFinale && (phase === "gather" || phase === "beat");
-    if (beatPhoto && phase !== "beat") beatPhoto.visible = false;
+    /* v18: beat photo is a full-screen background from the beat phase to
+       the end. It stays on the last beat photo through the finale (the
+       photo the user tapped on, or beat-04 on auto-finale). Dimmed during
+       the finale so fireworks / date stay readable, dimmer still during
+       rain so the falling words + photos stay on top. The hero DOM photo
+       covers it at the very end, so this is the background until then. */
+    if (beatPhoto) {
+      var bgOn = started && (phase === "beat" || inFinale);
+      beatPhoto.visible = bgOn;
+      if (bgOn) {
+        var bgOp = phase === "beat" ? 0.9 : (phase === "rain" ? 0.35 : 0.6);
+        if (phase === "beat") bgOp *= clamp01((ft - T_GATHER_END) / 0.4);
+        beatPhoto.material.opacity = bgOp;
+        var bgPulse = phase === "beat" ? (1 + 0.04 * beatPulse(ft - T_GATHER_END)) : 1;
+        beatPhoto.scale.set(beatBgBaseW * bgPulse, beatBgBaseH * bgPulse, 1);
+      }
+    }
     var burstVis = inFinale && (phase === "compress" || phase === "nova" || phase === "fire");
     heartPts.visible = hVis || burstVis;
     if (phase === "gather") {
@@ -840,10 +870,6 @@
       if (beatPhoto) {
         var bi = Math.floor(bt / 1.15) % BEAT_PHOTOS.length;
         if (bi !== beatPhotoIdx) { beatPhotoIdx = bi; beatPhoto.material.map = beatPhotoTex[bi]; beatPhoto.material.map.needsUpdate = true; }
-        beatPhoto.visible = true;
-        beatPhoto.material.opacity = 0.95 * clamp01(bt / 0.4);
-        var bp = 1 + 0.04 * beatPulse(bt);
-        beatPhoto.scale.set(30 * 0.72 * bp, 30 * bp, 1);
       }
     } else if (phase === "compress") {
       var ck = smooth(f / F_COMPRESS);
@@ -1017,6 +1043,8 @@
     beatPhotoIndex: function () { return beatPhotoIdx; },
     beatPhotoTotal: function () { return BEAT_PHOTOS.length; },
     beatPhotoVisible: function () { return !!(beatPhoto && beatPhoto.visible && beatPhoto.material.opacity > 0.25); },
+    beatBgOpacity: function () { return beatPhoto ? beatPhoto.material.opacity : 0; },
+    beatBgScaleH: function () { return beatPhoto ? beatPhoto.scale.y : 0; },
     beatPhotoLoaded: function () { var n = 0; beatPhotoLoadedFlags.forEach(function (f) { if (f) n++; }); return n; },
     photoRainTotal: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo") n++; }); return n; },
     photoRainLoaded: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.userData.loaded) n++; }); return n; },
