@@ -3,7 +3,7 @@
    Approved script: bare starfield + one pulsing pink star -> tap ignites it
    into a neon streak that handwrites the couple's names -> star dust gathers
    into a beating 3D heart -> FINALE in 4 beats: compress (silence) ->
-   supernova -> fireworks volleys -> embers regroup into "01.11" -> word rain
+   supernova -> fireworks volleys -> embers regroup into "01.11" -> word + photo rain
    + letter in the calm zone. All timing absolute (headless-safe). */
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -471,10 +471,54 @@
     world.add(dustPts);
   })();
 
-  /* ================= word rain 3D (finale) ================= */
+  /* ================= word + photo rain 3D (finale) ================= */
   var PHRASES = ["Thu Hằng × Tuấn Anh", "Giữa triệu người", "Tìm thấy nhau là duyên",
     "Giữ nhau là phúc", "Bên nhau là nhà", "Mãi bên nhau", "Ngọt ngào như năm đầu tiên",
     "Mừng kỷ niệm ngày cưới", "01.11", "Happy Anniversary"];
+  /* 9 photos Tony sent 2026-10-28, in the order he sent them. Aspect ratios
+     measured from the files on disk (not guessed): landscape ~1.4-1.5,
+     portrait 0.56-0.75. Sprites keep their own ratio, never stretched. */
+  var PHOTOS = [
+    { src: "assets/photos/photo-01.jpg", ar: 1.40 },
+    { src: "assets/photos/photo-02.jpg", ar: 1.40 },
+    { src: "assets/photos/photo-03.jpg", ar: 1.40 },
+    { src: "assets/photos/photo-04.jpg", ar: 1.40 },
+    { src: "assets/photos/photo-05.jpg", ar: 1.50 },
+    { src: "assets/photos/photo-06.jpg", ar: 0.56 },
+    { src: "assets/photos/photo-07.jpg", ar: 0.75 },
+    { src: "assets/photos/photo-08.jpg", ar: 0.75 },
+    { src: "assets/photos/photo-09.jpg", ar: 0.75 }
+  ];
+  function roundRectPath(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+  /* Draw a photo into a framed canvas texture once it loads. The canvas
+     starts transparent, so a not-yet-loaded photo is invisible (not a white
+     quad) and simply fades in with the rain once its texture uploads. */
+  function loadPhotoFrame(s, src) {
+    var img = new Image();
+    img.onload = function () {
+      var cv = s.material.map.image, g = cv.getContext("2d");
+      var W = cv.width, H = cv.height, r = Math.round(Math.min(W, H) * 0.055);
+      g.save();
+      roundRectPath(g, 0, 0, W, H, r);
+      g.clip();
+      g.drawImage(img, 0, 0, W, H);
+      g.lineWidth = Math.max(10, Math.round(Math.min(W, H) * 0.022));
+      g.strokeStyle = "rgba(255,158,196,0.95)";
+      g.stroke();
+      g.restore();
+      s.material.map.needsUpdate = true;
+      s.userData.loaded = true;
+    };
+    img.src = src;
+  }
   var TINTS = [0xffffff, 0xffd7ea, 0xff9ec4, 0xffc4dd, 0xffe3f0];
   var rainSprites = [], rainBuilt = false;
   function buildRainTextures() {
@@ -505,6 +549,30 @@
       s.visible = false;
       world.add(s); rainSprites.push(s);
     }
+    /* Photo sprites share the same fall / sway / anti-overlap loop as the
+       words, so photos and words rain together instead of in two layers.
+       One sprite per photo (9 total, no repeats in a single rain pass). */
+    PHOTOS.forEach(function (p) {
+      var cw = p.ar >= 1 ? 720 : Math.round(720 * p.ar);
+      var ch = p.ar >= 1 ? Math.round(720 / p.ar) : 720;
+      var cv = document.createElement("canvas"); cv.width = cw; cv.height = ch;
+      var tex = new THREE.CanvasTexture(cv);
+      /* Bloom threshold is 0.12, so a full-bright photo blows out white.
+         Darken the sprite colour so photos sit under the bloom and keep
+         their own colours instead of glowing to white. */
+      var m = new THREE.SpriteMaterial({
+        map: tex, color: 0x8f8f8f, transparent: true, opacity: 0, depthWrite: false
+      });
+      var s = new THREE.Sprite(m);
+      var hgt = p.ar >= 1 ? 6.8 : 9.0;
+      s.scale.set(hgt * p.ar, hgt, 1);
+      s.userData = { speed: 0, swayPh: Math.random() * Math.PI * 2, baseOp: 0.95,
+        kind: "photo", loaded: false };
+      loadPhotoFrame(s, p.src);
+      respawnWord(s, true);
+      s.visible = false;
+      world.add(s); rainSprites.push(s);
+    });
   }
   function respawnWord(s, anywhere) {
     var best = null;
@@ -862,6 +930,9 @@
     },
     textTotal: function () { return textReveals.length; },
     rainVisible: function () { var n = 0; rainSprites.forEach(function (s) { if (s.visible && s.material.opacity > 0.25) n++; }); return n; },
+    photoRainTotal: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo") n++; }); return n; },
+    photoRainLoaded: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.userData.loaded) n++; }); return n; },
+    photoRainVisible: function () { var n = 0; rainSprites.forEach(function (s) { if (s.userData.kind === "photo" && s.visible && s.material.opacity > 0.25 && s.userData.loaded) n++; }); return n; },
     letterShown: function () { return letterShown; },
     dateFormed: function () { return dateFormK; },
     volleysActive: function () { return volleys.length; },
