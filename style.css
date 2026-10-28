@@ -16,18 +16,19 @@ canvas#gl { position:absolute; inset:0; display:block; touch-action:none; }
   background:radial-gradient(ellipse at center, rgba(255,246,250,.98) 0%, rgba(255,205,228,.85) 42%, rgba(255,120,175,.35) 72%, rgba(255,120,175,0) 100%); }
 .hidden { display:none !important; }
 
-/* ---------- hero wedding photo (rain gathers into this, then letter) ---------- */
-#hero { position:absolute; z-index:5; left:50%; top:50%;
-  transform:translate(-50%,-50%) scale(.55); height:min(54vh, 560px);
-  opacity:0; pointer-events:none;
-  transition:opacity 1.2s ease, transform 1.2s ease, top 1.2s ease; }
-#hero.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
-/* When the letter slides in, the hero settles smaller + higher so it never
-   sits under the letter. */
-#hero.settled { top:26%; transform:translate(-50%,-50%) scale(.62); }
-#hero img { display:block; height:100%; width:auto; max-width:86vw; object-fit:contain;
-  border-radius:16px; border:2px solid rgba(255,158,196,.85);
-  box-shadow:0 0 50px rgba(255,77,141,.45), 0 18px 40px rgba(0,0,0,.5); }
+/* ---------- hero wedding photo, full screen (rain gathers into this) ---------- */
+/* Full screen on purpose (Tony 2026-10-28): the photo fills the whole stage
+   and STAYS full screen when the letter arrives — the letter overlays the
+   bottom of the photo instead of the photo shrinking away. Cover crops the
+   sides on portrait phones but keeps both faces (object-position 35%
+   keeps the faces, which sit in the upper third, inside the frame). */
+#hero { position:absolute; inset:0; z-index:5;
+  opacity:0; pointer-events:none; transition:opacity 1.2s ease; }
+#hero.show { opacity:1; }
+#hero img { display:block; width:100%; height:100%; object-fit:cover;
+  object-position:center 35%;
+  transform:scale(1.12); transition:transform 2.5s ease; }
+#hero.show img { transform:scale(1); }
 
 /* ---------- letter (calm zone, end of film) ---------- */
 #letter { position:absolute; z-index:6; left:50%; bottom:calc(18px + env(safe-area-inset-bottom));

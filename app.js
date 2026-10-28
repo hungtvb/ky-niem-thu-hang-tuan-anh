@@ -711,7 +711,10 @@
     camera.position.x = Math.sin(now * 0.07) * 1.5;
     camera.position.y = Math.cos(now * 0.09) * 1.0;
     camera.lookAt(0, 0, 0);
-    if (bloomPass) bloomPass.strength = phase === "compress" ? 0.55 : 0.9;
+    /* Rain photos burn out under full bloom (threshold 0.12, strength 0.9):
+       pale backgrounds glow to white. Drop bloom during rain so photos
+       keep their colours; words still read from their own canvas glow. */
+    if (bloomPass) bloomPass.strength = phase === "compress" ? 0.55 : (phase === "rain" ? 0.3 : 0.9);
     var boostTarget = phase === "compress" ? 1.07 : 1;
     worldBoost += (boostTarget - worldBoost) * Math.min(1, dt * 2.5);
     world.scale.setScalar(worldBase * worldBoost);
@@ -921,7 +924,6 @@
         });
         if (rt > HERO_AT + GATHER_DUR + 1.0 && !letterShown) {
           letterShown = true;
-          heroEl.classList.add("settled");
           letterEl.classList.add("show");
         }
       }
